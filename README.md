@@ -1,3 +1,3 @@
 # xdg-content-chooser
 
-An content chooser dialog for use with xdg-document-portal.
+A content chooser dialog for use with [xdg-document-portal](https://github.com/alexlarsson/xdg-document-portal).
