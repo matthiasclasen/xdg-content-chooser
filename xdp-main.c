@@ -128,7 +128,7 @@ open_content_chooser (GDBusMethodInvocation *invocation,
 {
   GSubprocess *subprocess;
   g_autoptr(GError) error = NULL;
-  g_autofree char **args = NULL;
+  g_autoptr(GPtrArray) args = NULL;
   ContentChooserData *data;
   GVariant *parameters;
   const char **types;
@@ -137,13 +137,13 @@ open_content_chooser (GDBusMethodInvocation *invocation,
   parameters = g_dbus_method_invocation_get_parameters (invocation);
   g_variant_get (parameters, "(^a&s)", &types);
 
-  args = g_new (char *, g_strv_length ((char **)types) + 2);
-  args[0] = LIBEXECDIR "/xdg-content-chooser";
+  args = g_ptr_array_new ();
+  g_ptr_array_add (args, LIBEXECDIR "/xdg-content-chooser");
   for (i = 0; types[i]; i++)
-    args[i + 1] = (char *)types[i];
-  args[i] = NULL;
+    g_ptr_array_add (args, (gpointer)types[i]);
+  g_ptr_array_add (args, NULL);
 
-  subprocess = g_subprocess_newv ((const char **)args, G_SUBPROCESS_FLAGS_STDOUT_PIPE, &error);
+  subprocess = g_subprocess_newv ((const char **)args->pdata, G_SUBPROCESS_FLAGS_STDOUT_PIPE, &error);
   if (subprocess == NULL)
     {
       g_dbus_method_invocation_return_error (invocation,
