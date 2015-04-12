@@ -19,15 +19,34 @@
 #include <gtk/gtk.h>
 #include "cc-content-chooser.h"
 
+static char *app_id = NULL;
+static GOptionEntry entries[] = {
+  { "caller", 0, 0, G_OPTION_ARG_STRING, &app_id, "Application ID", "ID" },
+  { NULL }
+};
+
 int
 main (int argc, char *argv[])
 {
   GtkWidget *chooser;
   const char *uri;
+  g_autoptr (GOptionContext) context = NULL;
+  GError *error = NULL;
 
   gtk_init (NULL, NULL);
 
   chooser = cc_content_chooser_new ();
+
+  context = g_option_context_new (NULL);
+  g_option_context_add_main_entries (context, entries, "");
+  if (!g_option_context_parse (context, &argc, &argv, &error))
+    {
+      g_printerr ("Failed to parse commandline: %s\n", error->message);
+      return 1;
+    }
+
+  if (app_id)
+    cc_content_chooser_set_app_id (CC_CONTENT_CHOOSER (chooser), app_id);
 
   if (argc > 1)
     {

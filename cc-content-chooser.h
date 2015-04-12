@@ -24,6 +24,8 @@ G_DECLARE_FINAL_TYPE(CcContentChooser, cc_content_chooser, CC, CONTENT_CHOOSER, 
 
 GtkWidget *cc_content_chooser_new (void);
 
+void cc_content_chooser_set_app_id     (CcContentChooser  *chooser,
+                                        const char        *app_id);
 void cc_content_chooser_set_mime_types (CcContentChooser  *chooser,
                                         const char       **mime_types);
 const char *cc_content_chooser_get_uri (CcContentChooser  *chooser);

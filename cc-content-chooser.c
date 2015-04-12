@@ -16,7 +16,8 @@
  *
  */
 
-
+#include <glib/gi18n.h>
+#include <gio/gdesktopappinfo.h>
 #include "cc-content-chooser.h"
 #include <string.h>
 
@@ -239,5 +240,26 @@ cc_content_chooser_set_mime_types (CcContentChooser *chooser,
                 }
             }
         }
+    }
+}
+
+void
+cc_content_chooser_set_app_id (CcContentChooser *chooser,
+                               const char       *app_id)
+{
+  char *desktop_id;
+  g_autoptr (GAppInfo) app = NULL;
+
+  desktop_id = g_strconcat (app_id, ".desktop", NULL);
+  app = G_APP_INFO (g_desktop_app_info_new (desktop_id));
+
+  if (app != NULL)
+    {
+      char *title;
+
+      title = g_strdup_printf (_("Select an item for %s"),
+                               g_app_info_get_display_name (app));
+      gtk_window_set_title (GTK_WINDOW (chooser), title);
+      g_free (title);
     }
 }
