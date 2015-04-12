@@ -139,6 +139,11 @@ open_content_chooser (GDBusMethodInvocation *invocation,
 
   args = g_ptr_array_new ();
   g_ptr_array_add (args, LIBEXECDIR "/xdg-content-chooser");
+  if (app_id[0] != '\0')
+    {
+      g_ptr_array_add (args, "--caller");
+      g_ptr_array_add (args, (gpointer)app_id);
+    }
   for (i = 0; types[i]; i++)
     g_ptr_array_add (args, (gpointer)types[i]);
   g_ptr_array_add (args, NULL);
