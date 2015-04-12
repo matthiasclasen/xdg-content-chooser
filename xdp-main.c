@@ -12,6 +12,7 @@
 typedef struct {
   GDBusMethodInvocation *invocation;
   const char *app_id;
+  gboolean create;
   gint64 handle;
 } ContentChooserData;
 
@@ -108,44 +109,86 @@ content_chooser_done (GObject      *object,
   uri = g_bytes_get_data (stdout_buf, NULL);
 
   connection = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
-  g_dbus_connection_call (connection,
-                          "org.freedesktop.portal.DocumentPortal",
-                          "/org/freedesktop/portal/document",
-                          "org.freedesktop.portal.DocumentPortal",
-                          "Add",
-                          g_variant_new ("(s)", uri),
-                          G_VARIANT_TYPE ("(x)"),
-                          G_DBUS_CALL_FLAGS_NONE,
-                          30000,
-                          NULL,
-                          got_document_handle,
-                          data);
+  if (data->create)
+    {
+      g_autoptr (GFile) file = NULL;
+      g_autoptr (GFile) parent = NULL;
+      g_autofree char *base = NULL;
+      g_autofree char *title = NULL;
+
+      file = g_file_new_for_uri (uri);
+      parent = g_file_get_parent (file);
+      base = g_file_get_uri (parent);
+      title = g_file_get_basename (file);
+      g_dbus_connection_call (connection,
+                              "org.freedesktop.portal.DocumentPortal",
+                              "/org/freedesktop/portal/document",
+                              "org.freedesktop.portal.DocumentPortal",
+                              "New",
+                              g_variant_new ("(ss)", base, title),
+                              G_VARIANT_TYPE ("(x)"),
+                              G_DBUS_CALL_FLAGS_NONE,
+                              30000,
+                              NULL,
+                              got_document_handle,
+                              data);
+    }
+  else
+    {
+      g_dbus_connection_call (connection,
+                              "org.freedesktop.portal.DocumentPortal",
+                              "/org/freedesktop/portal/document",
+                              "org.freedesktop.portal.DocumentPortal",
+                              "Add",
+                              g_variant_new ("(s)", uri),
+                              G_VARIANT_TYPE ("(x)"),
+                              G_DBUS_CALL_FLAGS_NONE,
+                              30000,
+                              NULL,
+                              got_document_handle,
+                              data);
+    }
 }
 
 static void
 open_content_chooser (GDBusMethodInvocation *invocation,
-                      const char            *app_id)
+                      const char            *app_id,
+                      gboolean               create)
 {
   GSubprocess *subprocess;
   g_autoptr(GError) error = NULL;
   g_autoptr(GPtrArray) args = NULL;
   ContentChooserData *data;
   GVariant *parameters;
-  const char **types;
+  const char **types = NULL;
+  const char *title = NULL;
   int i;
 
   parameters = g_dbus_method_invocation_get_parameters (invocation);
-  g_variant_get (parameters, "(^a&s)", &types);
+  if (create)
+    g_variant_get (parameters, "(&s)", &title);
+  else
+    g_variant_get (parameters, "(^a&s)", &types);
 
   args = g_ptr_array_new ();
   g_ptr_array_add (args, LIBEXECDIR "/xdg-content-chooser");
-  if (app_id[0] != '\0')
+  g_ptr_array_add (args, "--action");
+  g_ptr_array_add (args, create ? "create" : "open");
+  if (app_id && app_id[0])
     {
       g_ptr_array_add (args, "--caller");
       g_ptr_array_add (args, (gpointer)app_id);
     }
-  for (i = 0; types[i]; i++)
-    g_ptr_array_add (args, (gpointer)types[i]);
+  if (title && title[0])
+    {
+      g_ptr_array_add (args, "--title");
+      g_ptr_array_add (args, (gpointer)title);
+    }
+  if (types != NULL)
+    {
+      for (i = 0; types[i]; i++)
+        g_ptr_array_add (args, (gpointer)types[i]);
+    }
   g_ptr_array_add (args, NULL);
 
   subprocess = g_subprocess_newv ((const char **)args->pdata, G_SUBPROCESS_FLAGS_STDOUT_PIPE, &error);
@@ -160,6 +203,7 @@ open_content_chooser (GDBusMethodInvocation *invocation,
   data = g_new0 (ContentChooserData, 1);
   data->invocation = invocation;
   data->app_id = app_id;
+  data->create = create;
 
   g_subprocess_communicate_async (subprocess, NULL, NULL, content_chooser_done, data);
 }
@@ -170,6 +214,7 @@ got_app_id_cb (GObject      *source_object,
                gpointer      user_data)
 {
   GDBusMethodInvocation *invocation = G_DBUS_METHOD_INVOCATION (source_object);
+  gboolean create = GPOINTER_TO_INT (user_data);
   g_autoptr(GError) error = NULL;
   char *app_id;
 
@@ -178,15 +223,24 @@ got_app_id_cb (GObject      *source_object,
   if (app_id == NULL)
     g_dbus_method_invocation_return_gerror (invocation, error);
   else
-    open_content_chooser (invocation, app_id);
+    open_content_chooser (invocation, app_id, create);
 }
 
 static gboolean
-handle_open (XdpDbusContentPortal  *portal,
-             GDBusMethodInvocation *invocation,
-             const char            *type)
+handle_open (XdpDbusContentPortal   *portal,
+             GDBusMethodInvocation  *invocation,
+             const char            **types)
 {
-  xdp_invocation_lookup_app_id (invocation, NULL, got_app_id_cb, NULL);
+  xdp_invocation_lookup_app_id (invocation, NULL, got_app_id_cb, GINT_TO_POINTER (0));
+  return TRUE;
+}
+
+static gboolean
+handle_create (XdpDbusContentPortal  *portal,
+               GDBusMethodInvocation *invocation,
+               const char            *title)
+{
+  xdp_invocation_lookup_app_id (invocation, NULL, got_app_id_cb, GINT_TO_POINTER (1));
   return TRUE;
 }
 
@@ -202,6 +256,9 @@ on_bus_acquired (GDBusConnection *connection,
 
   g_signal_connect (helper, "handle-open",
                     G_CALLBACK (handle_open), NULL);
+
+  g_signal_connect (helper, "handle-create",
+                    G_CALLBACK (handle_create), NULL);
 
   xdp_connection_track_name_owners (connection);
 

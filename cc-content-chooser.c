@@ -155,7 +155,6 @@ cc_content_chooser_class_init (CcContentChooserClass *class)
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/freedesktop/content-chooser/content-chooser.ui");
 
-  gtk_widget_class_bind_template_callback (widget_class, stack_child_changed);
   gtk_widget_class_bind_template_callback (widget_class, cancel_clicked);
   gtk_widget_class_bind_template_callback (widget_class, select_clicked);
   gtk_widget_class_bind_template_callback (widget_class, back_clicked);
@@ -262,4 +261,31 @@ cc_content_chooser_set_app_id (CcContentChooser *chooser,
       gtk_window_set_title (GTK_WINDOW (chooser), title);
       g_free (title);
     }
+}
+
+void
+cc_content_chooser_set_action (CcContentChooser       *chooser,
+                               CcContentChooserAction  action)
+{
+  if (action == CC_CONTENT_CHOOSER_ACTION_OPEN)
+    {
+      g_signal_connect_swapped (chooser->stack, "notify::visible-child-name",
+                                G_CALLBACK (stack_child_changed), chooser);
+      gtk_file_chooser_set_action (GTK_FILE_CHOOSER (chooser->filechooser),
+                                   GTK_FILE_CHOOSER_ACTION_OPEN);
+    }
+  else
+    {
+      gtk_stack_set_visible_child_name (GTK_STACK (chooser->buttonstack), "cancel");
+      gtk_stack_set_visible_child_name (GTK_STACK (chooser->stack), "filechooser");
+      gtk_file_chooser_set_action (GTK_FILE_CHOOSER (chooser->filechooser),
+                                   GTK_FILE_CHOOSER_ACTION_SAVE);
+    }
+}
+
+void
+cc_content_chooser_set_title (CcContentChooser *chooser,
+                              const char       *title)
+{
+  gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (chooser->filechooser), title);
 }

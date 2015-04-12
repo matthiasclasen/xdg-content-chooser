@@ -29,5 +29,9 @@
       <arg type='as' name='types' direction='in'/>
       <arg type='x' name='handle' direction='out'/>
     </method>
+    <method name="Create">
+      <arg type='s' name='title' direction='in'/>
+      <arg type='x' name='handle' direction='out'/>
+    </method>
   </interface>
 </node>

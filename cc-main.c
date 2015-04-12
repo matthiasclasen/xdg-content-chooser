@@ -19,9 +19,14 @@
 #include <gtk/gtk.h>
 #include "cc-content-chooser.h"
 
+static char *action = NULL;
 static char *app_id = NULL;
+static char *title = NULL;
+
 static GOptionEntry entries[] = {
+  { "action", 0, 0, G_OPTION_ARG_STRING, &action, "Action", "ACTION" },
   { "caller", 0, 0, G_OPTION_ARG_STRING, &app_id, "Application ID", "ID" },
+  { "title", 0, 0, G_OPTION_ARG_STRING, &title, "Title", "TITLE" },
   { NULL }
 };
 
@@ -47,6 +52,19 @@ main (int argc, char *argv[])
 
   if (app_id)
     cc_content_chooser_set_app_id (CC_CONTENT_CHOOSER (chooser), app_id);
+
+  if (g_strcmp0 (action, "open") == 0)
+    cc_content_chooser_set_action (CC_CONTENT_CHOOSER (chooser), CC_CONTENT_CHOOSER_ACTION_OPEN);
+  else if (g_strcmp0 (action, "create") == 0)
+    cc_content_chooser_set_action (CC_CONTENT_CHOOSER (chooser), CC_CONTENT_CHOOSER_ACTION_CREATE);
+  else
+    {
+      g_printerr ("Not a valid content chooser action: %s\n", action);
+      return 1;
+    }
+
+  if (title)
+    cc_content_chooser_set_title (CC_CONTENT_CHOOSER (chooser), title);
 
   if (argc > 1)
     {

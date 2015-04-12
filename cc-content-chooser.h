@@ -29,3 +29,13 @@ void cc_content_chooser_set_app_id     (CcContentChooser  *chooser,
 void cc_content_chooser_set_mime_types (CcContentChooser  *chooser,
                                         const char       **mime_types);
 const char *cc_content_chooser_get_uri (CcContentChooser  *chooser);
+
+typedef enum {
+  CC_CONTENT_CHOOSER_ACTION_OPEN,
+  CC_CONTENT_CHOOSER_ACTION_CREATE
+} CcContentChooserAction;
+
+void cc_content_chooser_set_action (CcContentChooser       *chooser,
+                                    CcContentChooserAction  action);
+void cc_content_chooser_set_title  (CcContentChooser       *chooser,
+                                    const char             *title);
