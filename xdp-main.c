@@ -13,7 +13,7 @@ typedef struct {
   GDBusMethodInvocation *invocation;
   const char *app_id;
   gboolean create;
-  gint64 handle;
+  char *handle;
 } ContentChooserData;
 
 static void
@@ -23,6 +23,7 @@ got_permission_handle (GObject      *object,
 {
   GDBusConnection *connection = G_DBUS_CONNECTION (object);
   g_autofree ContentChooserData *data = user_data;
+  g_autofree char *handle = data->handle;
   g_autoptr(GVariant) res = NULL;
   g_autoptr(GError) error = NULL;
 
@@ -33,7 +34,7 @@ got_permission_handle (GObject      *object,
                                            "Granting permissions failed: %s", error->message);
   else
     g_dbus_method_invocation_return_value (data->invocation,
-                                           g_variant_new ("(x)", data->handle));
+                                           g_variant_new ("(s)", handle));
 }
 
 static void
@@ -58,16 +59,16 @@ got_document_handle (GObject      *object,
       return;
     }
 
-  g_variant_get (res, "(x)", &data->handle);
+  g_variant_get (res, "(s)", &data->handle);
 
-  path = g_strdup_printf ("/org/freedesktop/portal/document/%ld", data->handle);
+  path = g_strdup_printf ("/org/freedesktop/portal/document/%s", data->handle);
   g_dbus_connection_call (connection,
                           "org.freedesktop.portal.DocumentPortal",
                           path,
                           "org.freedesktop.portal.Document",
                           "GrantPermissions",
                           g_variant_new ("(s^as)", data->app_id, permissions),
-                          G_VARIANT_TYPE ("(x)"),
+                          G_VARIANT_TYPE ("(s)"),
                           G_DBUS_CALL_FLAGS_NONE,
                           30000,
                           NULL,
@@ -126,7 +127,7 @@ content_chooser_done (GObject      *object,
                               "org.freedesktop.portal.DocumentPortal",
                               "New",
                               g_variant_new ("(ss)", base, title),
-                              G_VARIANT_TYPE ("(x)"),
+                              G_VARIANT_TYPE ("(s)"),
                               G_DBUS_CALL_FLAGS_NONE,
                               30000,
                               NULL,
@@ -135,13 +136,13 @@ content_chooser_done (GObject      *object,
     }
   else
     {
-      g_dbus_connection_call (connection,
+      g_dbus_connection_call (connect:ion,
                               "org.freedesktop.portal.DocumentPortal",
                               "/org/freedesktop/portal/document",
                               "org.freedesktop.portal.DocumentPortal",
                               "Add",
                               g_variant_new ("(s)", uri),
-                              G_VARIANT_TYPE ("(x)"),
+                              G_VARIANT_TYPE ("(s)"),
                               G_DBUS_CALL_FLAGS_NONE,
                               30000,
                               NULL,
