@@ -136,7 +136,7 @@ content_chooser_done (GObject      *object,
     }
   else
     {
-      g_dbus_connection_call (connect:ion,
+      g_dbus_connection_call (connection,
                               "org.freedesktop.portal.DocumentPortal",
                               "/org/freedesktop/portal/document",
                               "org.freedesktop.portal.DocumentPortal",
