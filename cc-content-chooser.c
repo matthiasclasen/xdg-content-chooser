@@ -205,11 +205,7 @@ cc_content_chooser_set_mime_types (CcContentChooser *chooser,
       gtk_file_filter_set_name (no_filter, "All files");
       gtk_file_filter_add_custom (no_filter, 0, filter_any, NULL, NULL);
       gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser->filechooser), no_filter);
-      gtk_file_chooser_set_filter (GTK_FILE_CHOOSER (chooser->filechooser), no_filter);
 
-      /* FIXME: not sure this is really useful.
-       * Files is already the fallback option
-       */
       text_added = FALSE;
       image_added = FALSE;
       for (i = 0; chooser->mime_types[i]; i++)
@@ -218,26 +214,38 @@ cc_content_chooser_set_mime_types (CcContentChooser *chooser,
 
           if (g_content_type_is_a (chooser->mime_types[i], "text/*"))
             {
-              if (!text_added)
-                {
-                  text_added = TRUE;
-                  filter = gtk_file_filter_new ();
-                  gtk_file_filter_set_name (filter, "Text files");
-                  gtk_file_filter_add_mime_type (filter, "text/*");
-                  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser->filechooser), filter);
-                }
+              if (text_added)
+                continue;
+
+              text_added = TRUE;
+              filter = gtk_file_filter_new ();
+              gtk_file_filter_set_name (filter, "Text files");
+              gtk_file_filter_add_mime_type (filter, "text/*");
             }
           else if (g_content_type_is_a (chooser->mime_types[i], "image/*"))
             {
-              if (!image_added)
-                {
-                  image_added = TRUE;
-                  filter = gtk_file_filter_new ();
-                  gtk_file_filter_set_name (filter, "Images");
-                  gtk_file_filter_add_mime_type (filter, "image/*");
-                  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser->filechooser), filter);
-                }
+              if (image_added)
+                continue;
+
+              image_added = TRUE;
+              filter = gtk_file_filter_new ();
+              gtk_file_filter_set_name (filter, "Images");
+              gtk_file_filter_add_mime_type (filter, "image/*");
             }
+          else
+            {
+              gchar *description;
+
+              filter = gtk_file_filter_new ();
+              description = g_content_type_get_description (chooser->mime_types[i]);
+              gtk_file_filter_set_name (filter, description);
+              g_free (description);
+              gtk_file_filter_add_mime_type (filter, chooser->mime_types[i]);
+            }
+
+          gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser->filechooser), filter);
+          if (i == 0)
+            gtk_file_chooser_set_filter (GTK_FILE_CHOOSER (chooser->filechooser), filter);
         }
     }
 }
