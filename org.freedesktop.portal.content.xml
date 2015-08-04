@@ -27,11 +27,11 @@
   <interface name='org.freedesktop.portal.ContentPortal'>
     <method name="Open">
       <arg type='as' name='types' direction='in'/>
-      <arg type='s' name='handle' direction='out'/>
+      <arg type='ay' name='path' direction='out'/>
     </method>
     <method name="Create">
       <arg type='s' name='title' direction='in'/>
-      <arg type='s' name='handle' direction='out'/>
+      <arg type='ay' name='path' direction='out'/>
     </method>
   </interface>
 </node>
