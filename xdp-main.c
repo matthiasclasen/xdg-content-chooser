@@ -13,7 +13,8 @@ typedef struct {
   GDBusMethodInvocation *invocation;
   const char *app_id;
   gboolean create;
-  char *handle;
+  guint32 handle;
+  char *basename;
 } ContentChooserData;
 
 static void
@@ -23,9 +24,12 @@ got_permission_handle (GObject      *object,
 {
   GDBusConnection *connection = G_DBUS_CONNECTION (object);
   g_autofree ContentChooserData *data = user_data;
-  g_autofree char *handle = data->handle;
   g_autoptr(GVariant) res = NULL;
   g_autoptr(GError) error = NULL;
+  g_autofree char *basename = data->basename;
+  g_autofree char *path = g_strdup_printf ("%s/doc/%x/%s",
+                                           g_get_user_runtime_dir(),
+                                           data->handle, basename);
 
   res = g_dbus_connection_call_finish (connection, result, &error);
   if (res == NULL)
@@ -34,7 +38,7 @@ got_permission_handle (GObject      *object,
                                            "Granting permissions failed: %s", error->message);
   else
     g_dbus_method_invocation_return_value (data->invocation,
-                                           g_variant_new ("(s)", handle));
+                                           g_variant_new ("(^ay)", path));
 }
 
 static void
@@ -46,7 +50,6 @@ got_document_handle (GObject      *object,
   ContentChooserData *data = user_data;
   g_autoptr(GVariant) res = NULL;
   g_autoptr(GError) error = NULL;
-  g_autofree char *path = NULL;
   const char *permissions[4] = { "read", "write", "grant-permissions", NULL };
 
   res = g_dbus_connection_call_finish (connection, result, &error);
@@ -59,16 +62,15 @@ got_document_handle (GObject      *object,
       return;
     }
 
-  g_variant_get (res, "(s)", &data->handle);
+  g_variant_get (res, "(u)", &data->handle);
 
-  path = g_strdup_printf ("/org/freedesktop/portal/document/%s", data->handle);
   g_dbus_connection_call (connection,
-                          "org.freedesktop.portal.DocumentPortal",
-                          path,
-                          "org.freedesktop.portal.Document",
+                          "org.freedesktop.portal.Documents",
+                          "/org/freedesktop/portal/documents",
+                          "org.freedesktop.portal.Documents",
                           "GrantPermissions",
-                          g_variant_new ("(s^as)", data->app_id, permissions),
-                          G_VARIANT_TYPE ("(s)"),
+                          g_variant_new ("(us^as)", data->handle, data->app_id, permissions),
+                          G_VARIANT_TYPE ("()"),
                           G_DBUS_CALL_FLAGS_NONE,
                           30000,
                           NULL,
@@ -86,6 +88,7 @@ content_chooser_done (GObject      *object,
   g_autoptr(GBytes) stdout_buf = NULL;
   g_autoptr(GError) error = NULL;
   const char *uri = NULL;
+  g_autoptr (GFile) file = NULL;
   g_autoptr(GDBusConnection) connection = NULL;
 
   if (!g_subprocess_communicate_finish (subprocess, result, &stdout_buf, NULL, &error))
@@ -108,47 +111,22 @@ content_chooser_done (GObject      *object,
     }
 
   uri = g_bytes_get_data (stdout_buf, NULL);
+  file = g_file_new_for_uri (uri);
+  data->basename = g_file_get_basename (file);
 
   connection = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
-  if (data->create)
-    {
-      g_autoptr (GFile) file = NULL;
-      g_autoptr (GFile) parent = NULL;
-      g_autofree char *base = NULL;
-      g_autofree char *title = NULL;
-
-      file = g_file_new_for_uri (uri);
-      parent = g_file_get_parent (file);
-      base = g_file_get_uri (parent);
-      title = g_file_get_basename (file);
-      g_dbus_connection_call (connection,
-                              "org.freedesktop.portal.DocumentPortal",
-                              "/org/freedesktop/portal/document",
-                              "org.freedesktop.portal.DocumentPortal",
-                              "New",
-                              g_variant_new ("(ss)", base, title),
-                              G_VARIANT_TYPE ("(s)"),
-                              G_DBUS_CALL_FLAGS_NONE,
-                              30000,
-                              NULL,
-                              got_document_handle,
-                              data);
-    }
-  else
-    {
-      g_dbus_connection_call (connection,
-                              "org.freedesktop.portal.DocumentPortal",
-                              "/org/freedesktop/portal/document",
-                              "org.freedesktop.portal.DocumentPortal",
-                              "Add",
-                              g_variant_new ("(s)", uri),
-                              G_VARIANT_TYPE ("(s)"),
-                              G_DBUS_CALL_FLAGS_NONE,
-                              30000,
-                              NULL,
-                              got_document_handle,
-                              data);
-    }
+  g_dbus_connection_call (connection,
+                          "org.freedesktop.portal.Documents",
+                          "/org/freedesktop/portal/documents",
+                          "org.freedesktop.portal.Documents",
+                          "Add",
+                          g_variant_new ("(s)", uri),
+                          G_VARIANT_TYPE ("(u)"),
+                          G_DBUS_CALL_FLAGS_NONE,
+                          30000,
+                          NULL,
+                          got_document_handle,
+                          data);
 }
 
 static void
